@@ -1,0 +1,168 @@
+[project]
+name = "pipeloom"
+dynamic = ["version"]
+authors = [{ name = "Caleb Grant", email = "grantcaleb22@gmail.com" }]
+description = "Threaded ETL scaffolding with a single-writer SQLite (WAL) backend, Rich progress, and a Typer CLI."
+readme = { file = "README.md", content-type = "text/markdown" }
+requires-python = ">=3.12,<3.14"
+license = "GPL-3.0-or-later"
+dependencies = [
+    "rich>=14.1.0",
+    "typer>=0.16.0",
+]
+
+[dependency-groups]
+dev = [
+    "build>=1.3.0",
+    "bump-my-version>=1.2.1",
+    "polars>=1.32.2",
+    "pre-commit>=4.3.0",
+    "pytest-cov>=6.2.1",
+    "ruff>=0.12.8",
+    "tox-uv>=1.27.0",
+    "twine>=6.1.0",
+]
+docs = [
+    "markdown-include>=0.8.1",
+    "mkdocs>=1.6.1",
+    "mkdocs-material>=9.6.16",
+    "mkdocs-typer>=0.0.3",
+    "mkdocstrings[python]>=0.30.0",
+    "pymdown-extensions>=10.16.1",
+]
+
+[project.urls]
+Homepage = "https://github.com/geocoug/pipeloom"
+Repository = "https://github.com/geocoug/pipeloom"
+Issues = "https://github.com/geocoug/pipeloom/issues"
+
+[tool.setuptools]
+package-dir = { "" = "." }
+packages = { find = { include = ["pipeloom*"] } }
+
+[tool.setuptools.dynamic]
+version = { attr = "pipeloom.__version__" }
+
+[build-system]
+requires = ["setuptools>=67.6.1", "wheel>=0.40.0"]
+build-backend = "setuptools.build_meta"
+
+[project.scripts]
+pipeloom = "pipeloom.cli:app"
+
+[tool.ruff]
+exclude = [
+    ".bzr",
+    ".direnv",
+    ".eggs",
+    ".git",
+    ".hg",
+    ".mypy_cache",
+    ".nox",
+    ".pants.d",
+    ".ruff_cache",
+    ".svn",
+    ".tox",
+    ".venv",
+    "__pypackages__",
+    "_build",
+    "buck-out",
+    "build",
+    "dist",
+    "node_modules",
+    "venv",
+    "*cache*",
+]
+line-length = 120
+target-version = "py313"
+respect-gitignore = true
+fix = true
+
+[tool.ruff.lint]
+dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+select = [
+    "E",
+    "F",
+    "Q",
+    "B",
+    "I",
+    "UP",
+    "N",
+    "S",
+    "C4",
+    "T20",
+    "RET",
+    "SIM",
+    "PD",
+    "RUF",
+]
+ignore = ["RUF012", "S101", "PD901", "S608"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+
+[tool.bumpversion]
+current_version = "0.0.1"
+commit = true
+commit_args = "--no-verify"
+tag = true
+
+[[tool.bumpversion.files]]
+filename = "pipeloom/__init__.py"
+
+[tool.pytest.ini_options]
+addopts = [
+    "--cov=pipeloom",
+    "--cov=tests",
+    "--cov-branch",
+    "--cov-fail-under=90",
+    "--strict-markers",
+    "--strict-config",
+    "--color=yes",
+    "-ra",
+]
+testpaths = ["tests"]
+log_cli = true
+filterwarnings = [
+  "ignore::DeprecationWarning",
+]
+markers = [
+  "engine: threaded engine orchestration",
+  "writer: single-writer thread integration",
+  "progress: progress manager helpers",
+  "db: low-level sqlite helpers",
+]
+
+[tool.coverage.report]
+exclude_also = ["if __name__ == .__main__.:"]
+
+[tool.tox]
+required = ["tox-uv"]
+env_list = ["py312", "py313", "build", "docs"]
+skip_missing_interpreters = true
+isolated_build = true
+basepython = "python3.13"
+
+[tool.tox.env_run_base]
+description = "Run tests under {base_python}"
+deps = ["pytest-cov"]
+commands = [["pytest", "{posargs}"]]
+
+[tool.tox.env.docs]
+description = "Build documentation using MkDocs"
+deps = [
+    "mkdocs",
+    "mkdocs-material",
+    "mkdocstrings[python]",
+    "markdown-include",
+    "mkdocs-typer",
+]
+commands = [["mkdocs", "build", "-c", "-q"]]
+
+[tool.tox.env.build]
+description = "Build distribution packages"
+deps = ["tox-uv"]
+commands = [["uv", "build"]]

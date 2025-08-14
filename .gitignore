@@ -1,0 +1,25 @@
+# Environment variables
+.env
+
+# Custom vscode settings
+.vscode/
+
+# Python files
+.venv/
+*cache*
+.coverage
+backend/staticfiles/
+*.egg-info/
+.tox/
+.coverage*
+build/
+dist/
+
+# Log files
+*.log
+
+# Rendered documentation
+site/
+
+# Other
+*.db

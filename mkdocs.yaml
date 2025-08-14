@@ -1,0 +1,117 @@
+site_name: pipeloom
+site_author: Caleb Grant
+site_description: >-
+  Threaded ETL scaffolding with a **single-writer SQLite (WAL)** backend, **Rich** progress, and a **Typer** CLI.
+
+repo_name: geocoug/pipeloom
+repo_url: https://github.com/geocoug/pipeloom
+
+copyright: Copyright &copy; 2025 Caleb Grant
+
+theme:
+  name: material
+  features:
+    - announce.dismiss
+    - content.action.edit
+    - content.action.view
+    - content.code.annotate
+    - content.code.copy
+    - content.tooltips
+    - navigation.footer
+    - navigation.indexes
+    - navigation.sections
+    - navigation.tracking
+    - search.highlight
+    - search.share
+    - search.suggest
+    - toc.follow
+    - toc.integrate
+  palette:
+    - media: "(prefers-color-scheme)"
+      toggle:
+        icon: material/link
+        name: Switch to light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/toggle-switch
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: black
+      accent: indigo
+      toggle:
+        icon: material/toggle-switch-off
+        name: Switch to system preference
+  font:
+    text: Roboto
+    code: Roboto Mono
+  favicon: assets/favicon.ico
+  icon:
+    logo: logo
+  logo: assets/logo.png
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/geocoug/pipeloom
+
+nav:
+  - Overview: index.md
+  - Getting Started: getting-started.md
+  - Architecture:
+      - Components & Flow: architecture/components.md
+      - Sequences & States: architecture/sequences.md
+  - How to Extend: how-to-extend.md
+  - API Reference:
+      - pipeloom: api/pipeloom.md
+      - engine: api/engine.md
+      - writer: api/writer.md
+      - messages: api/messages.md
+      - progress: api/progress.md
+      - logging: api/logging.md
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [.]
+          options:
+            members_order: source
+            separate_signature: true
+            merge_init_into_class: true
+            show_signature_annotations: true
+            signature_crossrefs: true
+            show_root_heading: true
+            show_source: true
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - pymdownx.details
+  - pymdownx.emoji
+  - pymdownx.tabbed
+  - admonition
+  - tables
+  - mkdocs-typer
+  - md_in_html
+  - attr_list
+  - toc:
+      permalink: true
+  - markdown_include.include:
+      base_path: .
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format # noqa
+
+
