@@ -26,6 +26,7 @@ docs = [
     "markdown-include>=0.8.1",
     "mkdocs>=1.6.1",
     "mkdocs-material>=9.6.16",
+    "mkdocs-mermaid2-plugin>=1.2.1",
     "mkdocs-typer>=0.0.3",
     "mkdocstrings[python]>=0.30.0",
     "pymdown-extensions>=10.16.1",
