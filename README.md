@@ -1,7 +1,7 @@
 <div align="center">
     <img alt="pipeloom" title="pipeloom" width="120" src="https://raw.githubusercontent.com/geocoug/pipeloom/refs/heads/main/docs/assets/logo.png">
     <h1>pipeloom</h1>
-    <p>Threaded ETL scaffolding with a <strong>single-writer SQLite (WAL)</strong> backend, <strong>Rich</strong> progress display, and a <strong>Typer</strong> CLI.</p>
+    <p>Lightweight Python framework for orchestrating concurrent tasks with a single-writer persistence model and live progress tracking.</p>
 </div>
 
 <div align="center">
@@ -14,12 +14,13 @@
 
 <br />
 
-## Why pipeloom?
+## Features
 
-- **SQLite WAL**: Readers don’t block while the writer appends — perfect for local ETL jobs and small services.
-- **Single writer**: One connection, one thread → eliminates cross-thread SQLite issues.
-- **Structured messaging**: Workers never touch the database directly; they send typed messages to a queue.
-- **Clean UX**: Sticky overall progress bar, transient per-task bars, and a shared `Console` to prevent flicker.
+- Orchestrate concurrent tasks using Python’s threading model.
+- Persist results safely with a dedicated single-writer thread and SQLite in Write-Ahead Logging (WAL) mode.
+- Track progress in real-time with Rich-powered progress bars.
+- Define tasks and pipelines using a simple, declarative Python API.
+- Run pipelines from the command line with a clean Typer-powered CLI.
 
 ## Quickstart
 

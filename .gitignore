@@ -23,3 +23,5 @@ site/
 
 # Other
 *.db
+*.db-shm
+*.db-wal

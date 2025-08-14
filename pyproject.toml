@@ -2,7 +2,7 @@
 name = "pipeloom"
 dynamic = ["version"]
 authors = [{ name = "Caleb Grant", email = "grantcaleb22@gmail.com" }]
-description = "Threaded ETL scaffolding with a single-writer SQLite (WAL) backend, Rich progress, and a Typer CLI."
+description = "Lightweight Python framework for orchestrating concurrent tasks with a single-writer persistence model and live progress tracking."
 readme = { file = "README.md", content-type = "text/markdown" }
 requires-python = ">=3.12,<3.14"
 license = "GPL-3.0-or-later"
