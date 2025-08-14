@@ -11,7 +11,7 @@ dependencies = [
     "typer>=0.16.0",
 ]
 
-[dependency-groups]
+[project.optional-dependencies]
 dev = [
     "build>=1.3.0",
     "bump-my-version>=1.2.1",
@@ -23,13 +23,13 @@ dev = [
     "twine>=6.1.0",
 ]
 docs = [
-    "markdown-include>=0.8.1",
-    "mkdocs>=1.6.1",
-    "mkdocs-material>=9.6.16",
-    "mkdocs-mermaid2-plugin>=1.2.1",
-    "mkdocs-typer>=0.0.3",
-    "mkdocstrings[python]>=0.30.0",
-    "pymdown-extensions>=10.16.1",
+  "markdown-include>=0.8.1",
+  "mkdocs>=1.6.1",
+  "mkdocs-material>=9.6.16",
+  "mkdocs-mermaid2-plugin>=1.2.1",
+  "mkdocs-typer>=0.0.3",
+  "mkdocstrings[python]>=0.30.0",
+  "pymdown-extensions>=10.16.1",
 ]
 
 [project.urls]
@@ -160,6 +160,7 @@ deps = [
     "mkdocstrings[python]",
     "markdown-include",
     "mkdocs-typer",
+    "mkdocs-mermaid2-plugin",
 ]
 commands = [["mkdocs", "build", "-c", "-q"]]
 
