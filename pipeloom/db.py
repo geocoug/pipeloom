@@ -76,7 +76,7 @@ def init_schema(conn: sqlite3.Connection, *, store_task_status: bool) -> None:
           result TEXT
         );
         CREATE INDEX IF NOT EXISTS idx_task_runs_status ON task_runs(status);
-        """
+        """,
     )
     conn.commit()
 

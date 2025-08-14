@@ -15,7 +15,7 @@ def test_progress_factories_return_progress_instances() -> None:
     try:
         assert isinstance(overall, Progress)
         assert isinstance(tasks, Progress)
-        # Don’t assert internal attributes like 'transient' (not part of public API)
+        # Don't assert internal attributes like 'transient' (not part of public API)
     finally:
         overall.stop()
         tasks.stop()

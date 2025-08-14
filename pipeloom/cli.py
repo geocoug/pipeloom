@@ -11,6 +11,7 @@ from __future__ import annotations
 import logging
 import os
 from pathlib import Path
+from typing import Annotated
 
 import typer
 
@@ -41,20 +42,24 @@ def main(ctx: typer.Context):
 
 @app.command(name="demo")
 def demo(
-    db: Path = typer.Option(Path("./wal_demo.db"), help="SQLite DB path."),
-    wal: bool = typer.Option(True, help="Use SQLite WAL mode."),
-    num_tasks: int = typer.Option(20, min=1, help="How many demo tasks to run."),
-    workers: int = typer.Option(
-        os.cpu_count() or 4, min=1, help="Max concurrent worker threads."
-    ),
-    verbose: int = typer.Option(
-        1, "--verbose", "-v", count=True, help="Increase log verbosity (-v, -vv)."
-    ),
-    log_file: Path | None = typer.Option(None, help="Optional log file path."),
-    store_task_status: bool = typer.Option(
-        True,
-        help="Persist task status to SQLite (disable to only use DB for domain data).",
-    ),
+    db: Annotated[Path, typer.Option("--db", help="SQLite DB path.")] = Path("./wal_demo.db"),
+    no_wal: Annotated[bool, typer.Option("--no-wal", help="Do not use SQLite WAL mode.")] = False,
+    num_tasks: Annotated[int, typer.Option("-n", "--num-tasks", help="How many demo tasks to run.")] = 20,
+    workers: Annotated[int, typer.Option("-w", "--workers", help="Max concurrent worker threads.")] = os.cpu_count()
+    or 4,
+    verbose: Annotated[
+        int,
+        typer.Option("-v", "--verbose", count=True, help="Increase log verbosity (-v, -vv)."),
+    ] = 1,
+    log_file: Annotated[Path | None, typer.Option("-l", "--log-file", help="Optional log file path.")] = None,
+    store_task_status: Annotated[
+        bool,
+        typer.Option(
+            "-s",
+            "--store-task-status",
+            help="Persist task status to SQLite (disable to only use DB for domain data).",
+        ),
+    ] = False,
 ):
     """
     Run a demonstration pipeline that exercises the entire stack:
@@ -68,19 +73,16 @@ def demo(
         "Starting demo (tasks=%s, workers=%s, WAL=%s) → DB: %s",
         num_tasks,
         workers,
-        wal,
+        not no_wal,
         db,
     )
-
-    tasks = [
-        TaskDef(task_id=i, name=f"task-{i}", steps=20) for i in range(1, num_tasks + 1)
-    ]
+    tasks = [TaskDef(task_id=i, name=f"task-{i}", steps=20) for i in range(1, num_tasks + 1)]
 
     run_pipeline(
         db_path=db,
         tasks=tasks,
         workers=workers,
-        wal=wal,
+        wal=not no_wal,
         store_task_status=store_task_status,
     )
 

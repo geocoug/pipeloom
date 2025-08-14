@@ -30,11 +30,7 @@ def setup_logging(verbose: int, log_file: Path | None = None) -> None:
         verbose (int): 0 = WARNING, 1 = INFO, 2+ = DEBUG
         log_file (Path | None): If provided, a plain (non-Rich) file handler is added for CI/grep.
     """
-    level = (
-        logging.WARNING
-        if verbose <= 0
-        else logging.INFO if verbose == 1 else logging.DEBUG
-    )
+    level = logging.WARNING if verbose <= 0 else logging.INFO if verbose == 1 else logging.DEBUG
     handlers: list[logging.Handler] = [
         RichHandler(
             rich_tracebacks=True,
@@ -43,7 +39,7 @@ def setup_logging(verbose: int, log_file: Path | None = None) -> None:
             show_path=False,
             console=console,  # IMPORTANT: share with Progress
             markup=True,
-        )
+        ),
     ]
 
     if log_file:
@@ -53,7 +49,7 @@ def setup_logging(verbose: int, log_file: Path | None = None) -> None:
             logging.Formatter(
                 fmt="%(asctime)s %(levelname)s [%(name)s] %(message)s",
                 datefmt="%Y-%m-%d %H:%M:%S",
-            )
+            ),
         )
         handlers.append(fh)
 

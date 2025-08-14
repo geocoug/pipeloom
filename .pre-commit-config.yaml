@@ -22,7 +22,6 @@ repos:
         args: [--maxkb=49999]
       - id: check-ast
       - id: check-case-conflict
-      - id: check-yaml
       - id: end-of-file-fixer
       - id: mixed-line-ending
       - id: trailing-whitespace

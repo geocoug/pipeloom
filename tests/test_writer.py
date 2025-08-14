@@ -31,9 +31,7 @@ def test_writer_persists_and_clears(tmp_path, monkeypatch):
 
     con = sqlite3.connect(db)
     try:
-        row = con.execute(
-            "SELECT status, progress FROM task_runs WHERE id=1"
-        ).fetchone()
+        row = con.execute("SELECT status, progress FROM task_runs WHERE id=1").fetchone()
         assert row == ("done", 1.0)
     finally:
         con.close()

@@ -15,9 +15,7 @@ import pipeloom.rlog as rlog
         (3, logging.DEBUG),  # 2+ -> DEBUG
     ],
 )
-def test_setup_logging_sets_levels_and_rich_handler(
-    verbose: int, expected: int
-) -> None:
+def test_setup_logging_sets_levels_and_rich_handler(verbose: int, expected: int) -> None:
     # Reset root for a clean slate
     for h in list(logging.root.handlers):
         logging.root.removeHandler(h)

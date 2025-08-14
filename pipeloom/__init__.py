@@ -50,7 +50,7 @@ from .writer import SQLiteWriter
 # Ergonomic alias to match common naming used by callers
 MsgTaskStart = MsgTaskStarted
 
-__all__ = [
+__all__ = [  # noqa
     # Core orchestration
     "run_pipeline",
     # Writer

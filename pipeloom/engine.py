@@ -51,14 +51,14 @@ def default_worker(task: TaskDef, msg_q: queue.Queue[object]) -> None:
     msg_q.put(MsgTaskStarted(task_id=task.task_id, name=task.name, started_at=started))
     try:
         for step in range(1, task.steps + 1):
-            time.sleep(0.05 + random.random() * 0.05)  # simulate variable work
+            time.sleep(0.05 + random.random() * 0.05)  # noqa
             msg_q.put(
                 MsgTaskProgress(
                     task_id=task.task_id,
                     step=step,
                     total=task.steps,
                     message=f"step {step}/{task.steps}",
-                )
+                ),
             )
         finished = datetime.now(UTC).isoformat()
         msg_q.put(
@@ -68,7 +68,7 @@ def default_worker(task: TaskDef, msg_q: queue.Queue[object]) -> None:
                 finished_at=finished,
                 result=f"ok:{task.name}",
                 message="completed",
-            )
+            ),
         )
     except Exception as e:
         finished = datetime.now(UTC).isoformat()
@@ -79,7 +79,7 @@ def default_worker(task: TaskDef, msg_q: queue.Queue[object]) -> None:
                 finished_at=finished,
                 result=None,
                 message=str(e),
-            )
+            ),
         )
 
 
@@ -149,16 +149,12 @@ def run_pipeline(
             start = time.time()
 
             # Submit work to a thread pool.
-            with ThreadPoolExecutor(
-                max_workers=workers, thread_name_prefix="worker"
-            ) as ex:
+            with ThreadPoolExecutor(max_workers=workers, thread_name_prefix="worker") as ex:
                 futures = [ex.submit(worker_fn, t, msg_q) for t in all_tasks]
                 try:
                     for fut in as_completed(futures):
                         _ = fut.result()  # surface exceptions
-                        overall_p.advance(
-                            overall, 1
-                        )  # advance only when a task finishes
+                        overall_p.advance(overall, 1)  # advance only when a task finishes
                         if stop_event.is_set():
                             break
                 except KeyboardInterrupt:

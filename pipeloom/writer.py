@@ -146,9 +146,7 @@ class SQLiteWriter(threading.Thread):
 
             while not self._stop_flag.is_set():
                 try:
-                    item = self.msg_q.get(
-                        timeout=0.5
-                    )  # small timeout to enable graceful exit
+                    item = self.msg_q.get(timeout=0.5)  # small timeout to enable graceful exit
                 except queue.Empty:
                     continue
 
@@ -194,6 +192,4 @@ class _Suppress:
         return None
 
     def __exit__(self, exc_type, exc, tb):
-        return exc_type is not None and issubclass(
-            exc_type, self.exc_types or (Exception,)
-        )
+        return exc_type is not None and issubclass(exc_type, self.exc_types or (Exception,))

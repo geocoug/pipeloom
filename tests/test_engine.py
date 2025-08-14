@@ -33,7 +33,7 @@ def test_engine_smoke(tmp_path: Path) -> None:
     con = sqlite3.connect(db)
     try:
         total, done = con.execute(
-            "SELECT COUNT(*), SUM(CASE WHEN status='done' THEN 1 ELSE 0 END) FROM task_runs"
+            "SELECT COUNT(*), SUM(CASE WHEN status='done' THEN 1 ELSE 0 END) FROM task_runs",
         ).fetchone()
         assert total == 5
         assert done == 5

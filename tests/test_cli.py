@@ -13,22 +13,21 @@ def test_cli_demo_invokes_pipeline_with_flags(monkeypatch, tmp_path: Path):
     def fake_setup_logging(verbose, log_file):
         called["setup_logging"] = (verbose, log_file)
 
-    def fake_run_pipeline(*, db_path, tasks, workers, wal, store_task_status, **_):
+    def fake_run_pipeline(*, db_path, tasks, workers, store_task_status, **_):
         called["run_pipeline"] = {
             "db_path": Path(db_path),
             "num_tasks": len(list(tasks)),
             "workers": workers,
-            "wal": wal,
             "store_task_status": store_task_status,
         }
 
-    # Patch within the cli module’s namespace
+    # Patch within the cli module's namespace
     monkeypatch.setattr(cli, "setup_logging", fake_setup_logging, raising=True)
     monkeypatch.setattr(cli, "run_pipeline", fake_run_pipeline, raising=True)
 
     db = tmp_path / "cli_demo.db"
 
-    # Keep args minimal to avoid CLI quirks: no "-v/-vv", no "--wal"
+    # Keep args minimal to avoid CLI quirks: no "-v/-vv", no "--no-wal"
     result = runner.invoke(
         cli.app,
         [
@@ -44,7 +43,7 @@ def test_cli_demo_invokes_pipeline_with_flags(monkeypatch, tmp_path: Path):
 
     assert result.exit_code == 0, result.output
 
-    # Default verbose=1 when we don’t pass -v
+    # Default verbose=1 when we don't pass -v
     assert called.get("setup_logging") == (1, None)
     rp = called.get("run_pipeline")
     assert rp is not None
@@ -52,22 +51,18 @@ def test_cli_demo_invokes_pipeline_with_flags(monkeypatch, tmp_path: Path):
     assert rp["num_tasks"] == 7
     assert rp["workers"] == 3
     # Default flags when not provided
-    assert rp["wal"] is True
-    assert rp["store_task_status"] is True
+    assert rp["store_task_status"] is False
 
 
 def test_cli_demo_disable_task_status(monkeypatch, tmp_path: Path):
     called = {}
-    monkeypatch.setattr(
-        cli, "setup_logging", lambda *a, **k: called.setdefault("setup_logging", True)
-    )
+    monkeypatch.setattr(cli, "setup_logging", lambda *a, **k: called.setdefault("setup_logging", True))
 
-    def fake_run_pipeline(*, db_path, tasks, workers, wal, store_task_status, **_):
+    def fake_run_pipeline(*, db_path, tasks, workers, store_task_status, **_):
         called["args"] = {
             "db_path": Path(db_path),
             "num_tasks": len(list(tasks)),
             "store_task_status": store_task_status,
-            "wal": wal,
         }
 
     monkeypatch.setattr(cli, "run_pipeline", fake_run_pipeline, raising=True)
@@ -83,13 +78,11 @@ def test_cli_demo_disable_task_status(monkeypatch, tmp_path: Path):
             "2",
             "--workers",
             "1",
-            "--no-store-task-status",
+            "--store-task-status",
         ],
     )
 
     assert result.exit_code == 0, result.output
     assert called["args"]["db_path"] == db
     assert called["args"]["num_tasks"] == 2
-    assert called["args"]["store_task_status"] is False
-    # Still True by default when --wal not passed explicitly
-    assert called["args"]["wal"] is True
+    assert called["args"]["store_task_status"] is True

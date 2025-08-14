@@ -50,9 +50,7 @@ def test_init_schema_creates_and_writes(tmp_path: Path) -> None:
     conn = connect(db, wal=True)
     try:
         init_schema(conn, store_task_status=True)
-        row = conn.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name='task_runs';"
-        ).fetchone()
+        row = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='task_runs';").fetchone()
         assert row is not None
 
         conn.execute(
@@ -61,9 +59,7 @@ def test_init_schema_creates_and_writes(tmp_path: Path) -> None:
         )
         conn.commit()
 
-        got = conn.execute(
-            "SELECT status, progress FROM task_runs WHERE id=1;"
-        ).fetchone()
+        got = conn.execute("SELECT status, progress FROM task_runs WHERE id=1;").fetchone()
         assert got == ("running", 0.0)
     finally:
         conn.close()
@@ -75,9 +71,7 @@ def test_init_schema_noop_when_disabled(tmp_path: Path) -> None:
     conn = connect(db, wal=True)
     try:
         init_schema(conn, store_task_status=False)
-        row = conn.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name='task_runs';"
-        ).fetchone()
+        row = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='task_runs';").fetchone()
         assert row is None
     finally:
         conn.close()
