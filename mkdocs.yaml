@@ -95,7 +95,6 @@ markdown_extensions:
       pygments_lang_class: true
   - pymdownx.inlinehilite
   - pymdownx.snippets
-  - pymdownx.superfences
   - pymdownx.details
   - pymdownx.emoji
   - pymdownx.tabbed
@@ -112,6 +111,4 @@ markdown_extensions:
       custom_fences:
         - name: mermaid
           class: mermaid
-          format: !!python/name:pymdownx.superfences.fence_code_format # noqa
-
-
+          format: !!python/name:pymdownx.superfences.fence_code_format

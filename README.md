@@ -1,5 +1,5 @@
 <div align="center">
-    <img alt="pipeloom" title="pipeloom" width="96" src="docs/assets/logo.png">
+    <img alt="pipeloom" title="pipeloom" width="120" src="https://raw.githubusercontent.com/geocoug/pipeloom/refs/heads/main/docs/assets/logo.png">
     <h1>pipeloom</h1>
     <p>Threaded ETL scaffolding with a <strong>single-writer SQLite (WAL)</strong> backend, <strong>Rich</strong> progress display, and a <strong>Typer</strong> CLI.</p>
 </div>
