@@ -42,6 +42,10 @@ def default_worker(task: TaskDef, msg_q: queue.Queue[object]) -> None:
     """
     Demo worker function.
     Replace this in your projects with real work (ETL steps, API calls, etc.).
+
+    Args:
+        task (TaskDef): The task definition containing metadata about the task.
+        msg_q (queue.Queue[object]): The message queue to send progress updates and results.
     """
     started = datetime.now(UTC).isoformat()
     msg_q.put(MsgTaskStarted(task_id=task.task_id, name=task.name, started_at=started))
@@ -91,19 +95,13 @@ def run_pipeline(
     """
     Execute an ETL-style workload using a single-writer SQLite backend.
 
-    Parameters
-    ----------
-    db_path
-        Target SQLite database path.
-    tasks
-        Iterable of TaskDef instances (one per unit of work).
-    workers
-        Maximum number of concurrent worker threads.
-    wal
-        Enable WAL mode for the writer (recommended for file-backed DBs).
-    store_task_status
-        If True, create and maintain the `task_runs` table for observability.
-    worker_fn
+    Args:
+        db_path (Path): Target SQLite database path.
+        tasks (Iterable[TaskDef]): Iterable of TaskDef instances (one per unit of work).
+        workers (int): Maximum number of concurrent worker threads.
+        wal (bool): Enable WAL mode for the writer (recommended for file-backed DBs).
+        store_task_status (bool): If True, create and maintain the `task_runs` table for observability.
+        worker_fn (Callable[[TaskDef, queue.Queue[object]], None]): Custom worker function.
         Callable invoked for each TaskDef (signature: (task, queue) -> None).
 
     Notes

@@ -24,7 +24,13 @@
 ## Quickstart
 
 ```bash
-uv run pipeloom --db ./wal_demo.db --num-tasks 10 -vv
+uv run pipeloom demo --db ./wal_demo.db --num-tasks 10 -vv
+```
+
+Or with Docker:
+
+```bash
+docker run -it --rm ghcr.io/geocoug/pipeloom:latest demo --db ./wal_demo.db --num-tasks 10 -vv
 ```
 
 ## Using pipeloom in Your ETL

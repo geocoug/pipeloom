@@ -35,25 +35,18 @@ class SQLiteWriter(threading.Thread):
     """
     Dedicated thread that exclusively writes to SQLite and manages per-task bars.
 
-    Parameters
-    ----------
-    db_path
-        Path to the SQLite database file (or ':memory:').
-    msg_q
-        Thread-safe queue from which this writer consumes message objects.
-    wal
-        Whether to enable WAL on file-backed databases.
-    store_task_status
-        Toggle persistence of task status into the `task_runs` table.
-    task_progress
-        Rich Progress manager used for per-task bars (transient).
-    task_bar_map
-        Pre-registered mapping: task_id -> Rich TaskID (prevents render races).
+    Args:
+        db_path (str): Path to the SQLite database file (or ':memory:').
+        msg_q (queue.Queue[object]): Thread-safe queue from which this writer consumes message objects.
+        wal (bool): Whether to enable WAL on file-backed databases.
+        store_task_status (bool): Toggle persistence of task status into the `task_runs` table.
+        task_progress (Progress | None): Rich Progress manager used for per-task bars (transient).
+        task_bar_map (dict[int, TaskID] | None): Pre-registered mapping: task_id -> Rich TaskID (prevents render races).
     """
 
     def __init__(
         self,
-        db_path,
+        db_path: str,
         msg_q: queue.Queue[object],
         *,
         wal: bool = True,
@@ -73,7 +66,11 @@ class SQLiteWriter(threading.Thread):
 
     # --- message handlers --------------------------------------------------------------
     def _on_started(self, m: MsgTaskStarted) -> None:
-        """Persist that a task has started (if enabled)."""
+        """Persist that a task has started (if enabled).
+
+        Args:
+            m (MsgTaskStarted): The message object containing task information.
+        """
         assert self._conn is not None
         if self._store:
             self._conn.execute(
@@ -88,7 +85,11 @@ class SQLiteWriter(threading.Thread):
             self._conn.commit()
 
     def _on_progress(self, m: MsgTaskProgress) -> None:
-        """Update DB progress as fraction and drive the Rich bar."""
+        """Update DB progress as fraction and drive the Rich bar.
+
+        Args:
+            m (MsgTaskProgress): The message object containing task progress information.
+        """
         assert self._conn is not None
         pct = round(100.0 * (m.step / max(1, m.total)), 2)
 
@@ -106,7 +107,11 @@ class SQLiteWriter(threading.Thread):
                 self._progress.update(tid, completed=int(pct))
 
     def _on_finished(self, m: MsgTaskFinished) -> None:
-        """Write final status and remove the per-task bar cleanly."""
+        """Write final status and remove the per-task bar cleanly.
+
+        Args:
+            m (MsgTaskFinished): The message object containing task information.
+        """
         assert self._conn is not None
         if self._store:
             final = 1.0 if m.status == "done" else 0.0

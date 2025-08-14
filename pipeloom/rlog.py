@@ -26,12 +26,9 @@ def setup_logging(verbose: int, log_file: Path | None = None) -> None:
     """
     Configure logging.
 
-    Parameters
-    ----------
-    verbose
-        0 = WARNING, 1 = INFO, 2+ = DEBUG
-    log_file
-        If provided, a plain (non-Rich) file handler is added for CI/grep.
+    Args:
+        verbose (int): 0 = WARNING, 1 = INFO, 2+ = DEBUG
+        log_file (Path | None): If provided, a plain (non-Rich) file handler is added for CI/grep.
     """
     level = (
         logging.WARNING

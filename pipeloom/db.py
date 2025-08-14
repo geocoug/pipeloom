@@ -25,16 +25,12 @@ def connect(db_path: Path, *, wal: bool = True) -> sqlite3.Connection:
     Must be called from the writer thread. The connection is not safe to pass
     to worker threads.
 
-    Parameters
-    ----------
-    db_path
-        Path to SQLite database (may be :memory:).
-    wal
-        Enable WAL mode for file-backed databases.
+    Args:
+        db_path (Path): Path to SQLite database (may be :memory:).
+        wal (bool): Enable WAL mode for file-backed databases.
 
-    Returns
-    -------
-    sqlite3.Connection
+    Returns:
+        sqlite3.Connection
     """
     conn = sqlite3.connect(db_path, timeout=60, check_same_thread=True)
 
@@ -60,6 +56,10 @@ def init_schema(conn: sqlite3.Connection, *, store_task_status: bool) -> None:
 
     If you set `store_task_status=False`, this becomes a no-op and the DB is
     entirely yours for domain tables (e.g., ETL outputs).
+
+    Args:
+        conn (sqlite3.Connection): The SQLite connection to use.
+        store_task_status (bool): If True, create the `task_runs` table.
     """
     if not store_task_status:
         return
@@ -89,6 +89,10 @@ def wal_checkpoint(
     Manually checkpoint the WAL into the main DB and (optionally) truncate -wal.
 
     Useful at shutdown or between phases to keep the main file tidy.
+
+    Args:
+        conn (sqlite3.Connection): The SQLite connection to use.
+        mode (Literal["PASSIVE", "FULL", "RESTART", "TRUNCATE"]): The checkpoint mode.
     """
     conn.commit()
     conn.execute(f"PRAGMA wal_checkpoint({mode});").fetchone()

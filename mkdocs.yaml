@@ -68,6 +68,7 @@ nav:
   - API Reference:
       - pipeloom: api/pipeloom.md
       - engine: api/engine.md
+      - db: api/db.md
       - writer: api/writer.md
       - messages: api/messages.md
       - progress: api/progress.md
