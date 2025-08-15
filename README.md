@@ -123,6 +123,7 @@ q.put(MsgUpsertRecord(table="users", key="abc123", payload={"name": "Caleb", "ac
 Handle in the writer:
 
 ```python
+...
 elif isinstance(item, MsgUpsertRecord):
     self._on_upsert(item)
 
