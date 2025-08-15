@@ -14,15 +14,19 @@
 
 <br />
 
-## Features
+## Why pipeloom?
 
-- Orchestrate concurrent tasks using Python’s threading model.
-- Persist results safely with a dedicated single-writer thread and SQLite in Write-Ahead Logging (WAL) mode.
-- Track progress in real-time with Rich-powered progress bars.
-- Define tasks and pipelines using a simple, declarative Python API.
-- Run pipelines from the command line with a clean Typer-powered CLI.
+Many workflows require concurrency, persistence, and monitoring — but existing solutions can be burdonsome to spin up, maintain, and integrate with your workflow. `pipeloom` aims to simplify this with a message-driven, single-writer model that’s safe, observable, and extensible.
+
+### Who is it for?
+
+- Data engineers needing lightweight pipelines without Airflow/Kubernetes.
+- Analysts automating ETL locally or on servers.
+- Developers who want concurrency + persistence without database lock headaches.
 
 ## Quickstart
+
+Run the demo locally:
 
 ```bash
 uv run pipeloom demo --db ./wal_demo.db --num-tasks 10 -vv
@@ -34,29 +38,24 @@ Or with Docker:
 docker run -it --rm ghcr.io/geocoug/pipeloom:latest demo --db ./wal_demo.db --num-tasks 10 -vv
 ```
 
-## Using pipeloom in Your ETL
+Example output (Rich progress bars):
+![progress demo](https://raw.githubusercontent.com/geocoug/pipeloom/refs/heads/main/docs/assets/demo.gif)
 
-1. Define tasks with `TaskDef(...)`.
-2. Provide a `worker_fn(task, msg_q)` that emits:
-   - `MsgTaskStarted`
-   - `MsgTaskProgress` (at your own cadence)
-   - `MsgTaskFinished`
-3. Call:
+## Features
 
-```python
-run_pipeline(db_path, tasks, workers=..., wal=True, store_task_status=True)
-```
-
-> Pass `store_task_status=False` if you don’t want the `task_runs` table.
+- **Concurrent task orchestration** → Run many jobs at once safely.
+- **Single-writer persistence** → No more SQLite `database locked` errors.
+- **Live progress tracking** → Always know what’s running, failed, or complete.
+- **Declarative API** → Define tasks and pipelines with minimal boilerplate.
+- **CLI-first** → Run pipelines from the terminal with a Typer-powered CLI.
 
 ## Design Principles
 
-- All SQLite access happens in `SQLiteWriter` (one thread, one connection).
+- All SQLite access happens in one thread (`SQLiteWriter`).
 - Two progress managers:
-  - **Overall**: remains after completion.
-  - **Per-task**: disappears when done.
-- Per-task bars are pre-registered to avoid race conditions.
-- Task IDs can be `0` (falsy) — always check `task_id is not None`.
+  - **Overall** (remains after completion).
+  - **Per-task** (clears on finish).
+- Workers never write to the DB directly; they send typed messages to the writer.
 
 ## Architecture
 
@@ -91,18 +90,36 @@ flowchart LR
   DB <--> WAL
 ```
 
-**Why this works:**
+**Why this works**:
 
-Only the writer thread touches SQLite, avoiding cross-thread issues. WAL allows concurrent reads during writes. Workers communicate with the writer via typed messages in a queue.
+Only the writer thread touches SQLite. WAL mode allows concurrent reads during writes. Workers communicate via typed messages.
 
-## Extending
+## Using pipeloom in Your ETL
 
-Two main extension points:
+1. Define tasks with `TaskDef(...)`.
+2. Provide a `worker_fn(task, msg_q)` that emits:
+   - `MsgTaskStarted`
+   - `MsgTaskProgress`
+   - `MsgTaskFinished`
+3. Run:
 
-1. **Custom worker logic** — Workers do the work, then publish messages to the queue.
-2. **Custom message types** — Add domain-specific messages and handle them in the writer.
+```python
+run_pipeline(db_path, tasks, workers=..., wal=True, store_task_status=True)
+```
 
-Example: Adding a domain-specific message for upserts:
+> Pass `store_task_status=False` if you don’t want the `task_runs` table.
+
+## Extending pipeloom
+
+### Custom worker logic
+
+Workers perform the actual work, then publish messages.
+
+### Custom message types
+
+Add domain-specific messages and handle them in the writer.
+
+Example: domain-specific upsert:
 
 ```python
 from dataclasses import dataclass
@@ -114,16 +131,15 @@ class MsgUpsertRecord:
     payload: dict
 ```
 
-Emit from a worker:
+Emit from worker:
 
 ```python
 q.put(MsgUpsertRecord(table="users", key="abc123", payload={"name": "Caleb", "active": 1}))
 ```
 
-Handle in the writer:
+Handle in writer:
 
 ```python
-...
 elif isinstance(item, MsgUpsertRecord):
     self._on_upsert(item)
 
@@ -136,22 +152,11 @@ def _on_upsert(self, m: MsgUpsertRecord):
     self._conn.commit()
 ```
 
-## Tuning for Performance
-
-- Use **UPSERT** for idempotency.
-- Batch inserts when possible.
-- Adjust WAL checkpoints and cache size for workload.
-- Use `synchronous=OFF` only for disposable datasets.
-
 ## Observability
 
-Keep `task_runs` enabled unless you have a strong reason not to. Example queries:
+Keep `task_runs` enabled unless you have a strong reason not to.
 
 ```sql
 SELECT status, COUNT(*) FROM task_runs GROUP BY status;
 SELECT * FROM task_runs WHERE status <> 'done';
 ```
-
----
-
-`pipeloom` is message-driven and single-writer by design, making it safe, extensible, and efficient for local ETL workloads.

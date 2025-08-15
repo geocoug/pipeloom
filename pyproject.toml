@@ -33,7 +33,7 @@ docs = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/geocoug/pipeloom"
+Homepage = "https://pipeloom.readthedocs.io/en/latest/"
 Repository = "https://github.com/geocoug/pipeloom"
 Issues = "https://github.com/geocoug/pipeloom/issues"
 
