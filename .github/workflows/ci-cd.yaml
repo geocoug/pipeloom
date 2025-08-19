@@ -25,7 +25,7 @@ jobs:
         python-version:
           - "3.12"
           - "3.13"
-    name: tests (py${{ matrix.python-version }})
+    name: test-${{ matrix.os }}-py${{ matrix.python-version }})
     runs-on: ${{ matrix.os }}
     permissions:
       contents: read
