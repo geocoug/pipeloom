@@ -38,6 +38,7 @@ from rich.logging import RichHandler
 from .engine import run_pipeline
 from .messages import (
     SENTINEL,
+    Msg,
     MsgTaskFinished,
     MsgTaskProgress,
     MsgTaskStarted,
@@ -51,6 +52,7 @@ from .writer import SQLiteWriter
 
 # Ergonomic alias to match common naming used by callers
 MsgTaskStart = MsgTaskStarted
+MsgTaskFinish = MsgTaskFinished
 
 __all__ = [  # noqa
     # Core orchestration
@@ -62,6 +64,8 @@ __all__ = [  # noqa
     "MsgTaskStart",  # alias
     "MsgTaskProgress",
     "MsgTaskFinished",
+    "MsgTaskFinish",  # alias
+    "Msg",
     "SENTINEL",
     # Progress helpers
     "make_overall_progress",
@@ -69,7 +73,6 @@ __all__ = [  # noqa
     "preregister_task_bars",
     # Advanced: shared Console
     "console",
-    "logger",
     "setup_logging",
 ]
 
