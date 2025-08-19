@@ -93,6 +93,10 @@ def wal_checkpoint(
     Args:
         conn (sqlite3.Connection): The SQLite connection to use.
         mode (Literal["PASSIVE", "FULL", "RESTART", "TRUNCATE"]): The checkpoint mode.
+            - PASSIVE: Only checkpoint if there are no active readers.
+            - FULL: Checkpoint and truncate the WAL.
+            - RESTART: Checkpoint and restart the WAL.
+            - TRUNCATE: Checkpoint and truncate the WAL.
     """
     conn.commit()
     conn.execute(f"PRAGMA wal_checkpoint({mode});").fetchone()

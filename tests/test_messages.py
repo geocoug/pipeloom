@@ -2,11 +2,12 @@ from dataclasses import FrozenInstanceError
 
 import pytest
 
-from pipeloom.messages import MsgTaskFinished, MsgTaskProgress, MsgTaskStarted, TaskDef
+from pipeloom.demo import DemoTask
+from pipeloom.messages import MsgTaskFinished, MsgTaskProgress, MsgTaskStarted
 
 
-def test_taskdef_defaults() -> None:
-    t = TaskDef(task_id=7, name="t7")
+def test_demotask_defaults() -> None:
+    t = DemoTask(task_id=7, name="t7")
     assert t.steps == 20
     assert t.task_id == 7
     assert t.name == "t7"

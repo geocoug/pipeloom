@@ -1,6 +1,21 @@
 #!/usr/bin/env python3
+"""
+etl_http_json_sqlite.py
+=======================
+
+Minimal ETL pipeline using pipeloom:
+
+- Extract: fetch JSON from an HTTP API (JSONPlaceholder).
+- Transform: select and normalize columns into a Polars DataFrame.
+- Load: create/ensure SQLite tables, then UPSERT rows in batches.
+
+This demonstrates how to orchestrate a realistic ETL workflow with pipeloom,
+including progress reporting, schema enforcement, and retry handling.
+"""
+
 from __future__ import annotations
 
+import time
 from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -15,121 +30,130 @@ from pipeloom.messages import MsgTaskFinished, MsgTaskProgress, MsgTaskStarted
 from pipeloom.rlog import logger, setup_logging
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Task definition (URL → table). Keep it tiny and generic.
+# Task definition
 # ──────────────────────────────────────────────────────────────────────────────
 
 
 @dataclass(frozen=True)
-class WebTask:
+class Task:
     task_id: int
     name: str
     url: str
     table: str
-    # DDL for the target table — small & explicit per-task
-    schema_sql: str
-    # Columns to select from the source data
+    schema_sql: str  # explicit CREATE TABLE IF NOT EXISTS ...
     select_cols: Iterable[str]
-    # Primary key column for UPSERT
-    key: str = "id"
+    key: str = "id"  # upsert key
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# ETL steps — tiny functions, no custom pipeline code beyond pipeloom messages
+# ETL helpers
 # ──────────────────────────────────────────────────────────────────────────────
 
 
-def extract_json(url: str) -> list[dict]:
-    """Download JSON from the web (kept small and dependency-free)."""
-    logger.info("GET %s", url)
-    r = requests.get(url, timeout=30)
-    r.raise_for_status()
-    data = r.json()
-    # Ensure array-of-objects; JSONPlaceholder returns that already
-    if isinstance(data, dict):
-        data = [data]
-    return data  # list[dict]
+def http_get_json(url: str, *, retries: int = 3, timeout: float = 15.0) -> list[dict]:
+    last_exc: Exception | None = None
+    for attempt in range(1, retries + 1):
+        try:
+            logger.info("GET %s (attempt %d/%d)", url, attempt, retries)
+            r = requests.get(url, timeout=timeout)
+            r.raise_for_status()
+            data = r.json()
+            return data if isinstance(data, list) else [data]
+        except (requests.RequestException, ValueError) as e:
+            last_exc = e
+            # simple backoff: 0.5, 1.0, 2.0
+            time.sleep(0.5 * (2 ** (attempt - 1)))
+    assert last_exc is not None
+    raise last_exc
 
 
 def transform_to_df(data: list[dict], select_cols: Iterable[str]) -> pl.DataFrame:
-    """Turn list[dict] into Polars; select only the columns we want."""
     if not data:
+        # build empty DF with desired columns (all Null)
         return pl.DataFrame(schema=dict.fromkeys(select_cols, pl.Null))
     df = pl.DataFrame(data)
-    keep = [c for c in select_cols if c in df.columns]
-    # Add missing columns (if any) as Nulls to keep schema stable
-    for missing in set(select_cols) - set(keep):
-        df = df.with_columns(pl.lit(None).alias(missing))
-        keep.append(missing)
-    return df.select(keep)
+    # keep only the requested columns (create missing as Null)
+    keep = []
+    for c in select_cols:
+        if c in df.columns:
+            keep.append(c)
+        else:
+            df = df.with_columns(pl.lit(None).alias(c))
+            keep.append(c)
+    out = df.select(keep)
+    # normalize some common types (optional but nice for demos)
+    if "completed" in out.columns:
+        out = out.with_columns(
+            pl.col("completed")
+            .cast(pl.Boolean, strict=False)
+            .fill_null(False)
+            .cast(pl.Int8),  # store as 0/1 per your schema
+        )
+    for c in ("id", "userId"):
+        if c in out.columns:
+            out = out.with_columns(pl.col(c).cast(pl.Int64, strict=False))
+    return out
 
 
-def ensure_schema(conn, ddl: str) -> None:
-    conn.execute(ddl)
-    conn.commit()
+def ensure_schema(db_path: Path, ddl: str) -> None:
+    con = connect(db_path=db_path, wal=True)
+    try:
+        con.execute(ddl)
+        con.commit()
+    finally:
+        con.close()
 
 
 def upsert_df(db_path: Path, table: str, key: str, df: pl.DataFrame) -> None:
-    """UPSERT rows with a short-lived connection (keeps example simple)."""
     if df.is_empty():
         return
-    conn = connect(db_path=db_path, wal=True)
+    con = connect(db_path=db_path, wal=True)
     try:
-        # reasonable defaults for concurrent demo writes
-        conn.execute("PRAGMA journal_mode=WAL;")
-        conn.execute("PRAGMA synchronous=NORMAL;")
-
+        con.execute("PRAGMA journal_mode=WAL;")
+        con.execute("PRAGMA synchronous=NORMAL;")
         cols = df.columns
-        placeholders = ", ".join(["?"] * len(cols))
         col_list = ", ".join(cols)
+        placeholders = ", ".join(["?"] * len(cols))
         update_list = ", ".join([f"{c}=excluded.{c}" for c in cols if c != key])
-
         sql = f"""
             INSERT INTO {table}({col_list})
             VALUES ({placeholders})
             ON CONFLICT({key}) DO UPDATE SET
               {update_list}
         """
-
-        # stream in modest chunks to keep memory small if data is large
         chunk = 100_000
         for offset in range(0, df.height, chunk):
             view = df.slice(offset, min(chunk, df.height - offset))
-            rows = view.iter_rows()  # iterator of tuples
-            conn.executemany(sql, rows)
-            conn.commit()
+            con.execute("BEGIN IMMEDIATE;")
+            try:
+                con.executemany(sql, view.iter_rows())
+                con.commit()
+            except Exception:
+                con.rollback()
+                raise
     finally:
-        wal_checkpoint(conn, "TRUNCATE")
-        conn.close()
+        wal_checkpoint(con, "TRUNCATE")
+        con.close()
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Pipeloom worker config
+# ──────────────────────────────────────────────────────────────────────────────
 
 
 def make_worker(db_path: Path):
-    """Return a (task, msg_q) -> None callable for pipeloom."""
-
-    def worker(task: WebTask, msg_q) -> None:
+    def worker(task: Task, msg_q) -> None:
         started = datetime.now(UTC).isoformat()
         msg_q.put(MsgTaskStarted(task.task_id, task.name, started))
         try:
             total = 3
-
-            # 1) Extract
-            raw = extract_json(task.url)
+            raw = http_get_json(task.url)
             msg_q.put(MsgTaskProgress(task.task_id, 1, total, "extracted"))
 
-            # 2) Transform (choose the columns you want in the final table)
-            # For JSONPlaceholder posts: id, userId, title, body
             df = transform_to_df(raw, select_cols=task.select_cols)
             msg_q.put(MsgTaskProgress(task.task_id, 2, total, "transformed"))
 
-            # 3) Load (ensure schema, then UPSERT)
-            conn = connect(db_path=db_path, wal=True)
-            try:
-                ensure_schema(
-                    conn,
-                    task.schema_sql,
-                )
-            finally:
-                conn.close()
-
+            ensure_schema(db_path, task.schema_sql)
             upsert_df(db_path, task.table, task.key, df)
             msg_q.put(MsgTaskProgress(task.task_id, 3, total, "loaded"))
 
@@ -149,21 +173,13 @@ def make_worker(db_path: Path):
     return worker
 
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Main: define tiny tasks → let pipeloom orchestrate the rest
-# ──────────────────────────────────────────────────────────────────────────────
-
-
 def main() -> None:
     setup_logging(1)
-    logger.info("Starting minimal web → SQLite ETL with pipeloom…")
+    db = Path("pipeloom.db")
 
-    db = Path("etl.db")
-
-    # Example 1: JSONPlaceholder posts
-    posts = WebTask(
-        task_id=1,
-        name="posts",
+    posts = Task(
+        1,
+        "posts",
         url="https://jsonplaceholder.typicode.com/posts",
         table="posts",
         schema_sql="""
@@ -178,10 +194,9 @@ def main() -> None:
         key="id",
     )
 
-    # Example 2: JSONPlaceholder todos (different schema, same boilerplate)
-    todos = WebTask(
-        task_id=2,
-        name="todos",
+    todos = Task(
+        2,
+        "todos",
         url="https://jsonplaceholder.typicode.com/todos",
         table="todos",
         schema_sql="""
@@ -189,25 +204,21 @@ def main() -> None:
             id        INTEGER PRIMARY KEY,
             userId    INTEGER,
             title     TEXT,
-            completed INTEGER  -- store booleans as 0/1
+            completed INTEGER
           );
         """,
         select_cols=("id", "userId", "title", "completed"),
         key="id",
     )
 
-    # Use the same worker; columns selected in transform_to_df will adapt
-    worker_fn = make_worker(db)
     run_pipeline(
         db_path=db,
         tasks=[posts, todos],
         workers=4,
         wal=True,
         store_task_status=True,
-        worker_fn=worker_fn,
+        worker_fn=make_worker(db),
     )
-
-    logger.info("Done. Open %s and query tables: posts, todos", db.resolve())
 
 
 if __name__ == "__main__":

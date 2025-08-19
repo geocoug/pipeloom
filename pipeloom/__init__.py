@@ -27,24 +27,26 @@ Top-level exports are provided for convenience so you can do:
     )
 """
 
+from __future__ import annotations
+
+import logging
+from pathlib import Path
+
+from rich.console import Console
+from rich.logging import RichHandler
+
 from .engine import run_pipeline
 from .messages import (
     SENTINEL,
     MsgTaskFinished,
     MsgTaskProgress,
     MsgTaskStarted,
-    TaskDef,
 )
 from .progress import (
     make_overall_progress,
     make_task_progress,
     preregister_task_bars,
 )
-from .rlog import (
-    console,
-    logger,
-    setup_logging,
-)  # shared Console and logger, useful for advanced usage
 from .writer import SQLiteWriter
 
 # Ergonomic alias to match common naming used by callers
@@ -56,7 +58,6 @@ __all__ = [  # noqa
     # Writer
     "SQLiteWriter",
     # Messages
-    "TaskDef",
     "MsgTaskStarted",
     "MsgTaskStart",  # alias
     "MsgTaskProgress",
@@ -73,3 +74,43 @@ __all__ = [  # noqa
 ]
 
 __version__ = "0.0.5"
+
+# Single shared console for logs and progress.
+console = Console(log_path=False)
+
+logger = logging.getLogger("pipeloom")
+
+
+def setup_logging(verbose: int, log_file: Path | None = None) -> None:
+    """
+    Configure logging.
+
+    Args:
+        verbose (int): 0 = WARNING, 1 = INFO, 2+ = DEBUG
+        log_file (Path | None): If provided, a plain (non-Rich) file handler is added for CI/grep.
+    """
+    level = logging.WARNING if verbose <= 0 else logging.INFO if verbose == 1 else logging.DEBUG
+    handlers: list[logging.Handler] = [
+        RichHandler(
+            rich_tracebacks=True,
+            show_time=False,
+            show_level=True,
+            show_path=False,
+            console=console,  # IMPORTANT: share with Progress
+            markup=True,
+        ),
+    ]
+
+    if log_file:
+        fh = logging.FileHandler(log_file, encoding="utf-8")
+        fh.setLevel(level)
+        fh.setFormatter(
+            logging.Formatter(
+                fmt="%(asctime)s %(levelname)s [%(name)s] %(message)s",
+                datefmt="%Y-%m-%d %H:%M:%S",
+            ),
+        )
+        handlers.append(fh)
+
+    logging.basicConfig(level=level, format="%(message)s", handlers=handlers)
+    logger.setLevel(level)

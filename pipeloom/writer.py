@@ -22,10 +22,12 @@ import logging
 import queue
 import sqlite3
 import threading
+from pathlib import Path
 
 from rich.progress import Progress, TaskID
 
 from . import db as dbmod
+from .engine import Msg
 from .messages import SENTINEL, MsgTaskFinished, MsgTaskProgress, MsgTaskStarted
 
 LOG = logging.getLogger(__name__)
@@ -36,8 +38,8 @@ class SQLiteWriter(threading.Thread):
     Dedicated thread that exclusively writes to SQLite and manages per-task bars.
 
     Args:
-        db_path (str): Path to the SQLite database file (or ':memory:').
-        msg_q (queue.Queue[object]): Thread-safe queue from which this writer consumes message objects.
+        db_path (Path): Path to the SQLite database file (or ':memory:').
+        msg_q (queue.Queue[Msg]): Thread-safe queue from which this writer consumes message objects.
         wal (bool): Whether to enable WAL on file-backed databases.
         store_task_status (bool): Toggle persistence of task status into the `task_runs` table.
         task_progress (Progress | None): Rich Progress manager used for per-task bars (transient).
@@ -46,8 +48,8 @@ class SQLiteWriter(threading.Thread):
 
     def __init__(
         self,
-        db_path: str,
-        msg_q: queue.Queue[object],
+        db_path: Path,
+        msg_q: queue.Queue[Msg],
         *,
         wal: bool = True,
         store_task_status: bool = True,
@@ -146,7 +148,9 @@ class SQLiteWriter(threading.Thread):
 
             while not self._stop_flag.is_set():
                 try:
-                    item = self.msg_q.get(timeout=0.5)  # small timeout to enable graceful exit
+                    item = self.msg_q.get(
+                        timeout=0.5,
+                    )  # small timeout to enable graceful exit
                 except queue.Empty:
                     continue
 
@@ -192,4 +196,7 @@ class _Suppress:
         return None
 
     def __exit__(self, exc_type, exc, tb):
-        return exc_type is not None and issubclass(exc_type, self.exc_types or (Exception,))
+        return exc_type is not None and issubclass(
+            exc_type,
+            self.exc_types or (Exception,),
+        )

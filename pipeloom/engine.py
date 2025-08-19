@@ -1,169 +1,154 @@
-"""
-engine.py
-=========
-
-Pipeline orchestration:
-
-- Builds two Rich progress managers (overall sticky / per-task transient).
-- Pre-registers per-task bars to avoid UI races.
-- Starts the SQLite writer thread.
-- Submits work to a ThreadPoolExecutor.
-- Signals the writer with SENTINEL and joins while the transient progress
-  is still live, so bars vanish before the final frame is rendered.
-"""
-
 from __future__ import annotations
 
 import logging
+import os
 import queue
-import random
 import signal
 import threading
 import time
 from collections.abc import Callable, Iterable
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import UTC, datetime
+from concurrent.futures import CancelledError, ThreadPoolExecutor, as_completed
 from pathlib import Path
+from typing import TypeVar
 
-from .messages import (
-    SENTINEL,
-    MsgTaskFinished,
-    MsgTaskProgress,
-    MsgTaskStarted,
-    TaskDef,
-)
+from .messages import SENTINEL, Msg
 from .progress import make_overall_progress, make_task_progress, preregister_task_bars
 from .writer import SQLiteWriter
 
 LOG = logging.getLogger(__name__)
 
+TTask = TypeVar("TTask")
 
-def default_worker(task: TaskDef, msg_q: queue.Queue[object]) -> None:
-    """
-    Demo worker function.
-    Replace this in your projects with real work (ETL steps, API calls, etc.).
 
-    Args:
-        task (TaskDef): The task definition containing metadata about the task.
-        msg_q (queue.Queue[object]): The message queue to send progress updates and results.
-    """
-    started = datetime.now(UTC).isoformat()
-    msg_q.put(MsgTaskStarted(task_id=task.task_id, name=task.name, started_at=started))
+def _pick_workers[TTask](tasks: Iterable[TTask], explicit: int | None) -> int:
+    """Determine the number of worker threads to use based on the task list and explicit count."""
+    if explicit is not None:
+        if explicit < 1:
+            raise ValueError("workers must be >= 1")
+        return explicit
+    cpu = os.cpu_count() or 4
     try:
-        for step in range(1, task.steps + 1):
-            time.sleep(0.05 + random.random() * 0.05)  # noqa
-            msg_q.put(
-                MsgTaskProgress(
-                    task_id=task.task_id,
-                    step=step,
-                    total=task.steps,
-                    message=f"step {step}/{task.steps}",
-                ),
-            )
-        finished = datetime.now(UTC).isoformat()
-        msg_q.put(
-            MsgTaskFinished(
-                task_id=task.task_id,
-                status="done",
-                finished_at=finished,
-                result=f"ok:{task.name}",
-                message="completed",
-            ),
-        )
-    except Exception as e:
-        finished = datetime.now(UTC).isoformat()
-        msg_q.put(
-            MsgTaskFinished(
-                task_id=task.task_id,
-                status="error",
-                finished_at=finished,
-                result=None,
-                message=str(e),
-            ),
-        )
+        n = len(tasks)  # type: ignore[arg-type]
+        return max(1, min(cpu, n)) if n > 0 else max(1, cpu)
+    except TypeError:
+        return max(1, cpu)
 
 
 def run_pipeline(
-    db_path: Path,
-    tasks: Iterable[TaskDef],
+    tasks: Iterable[TTask],
+    db_path: Path = Path("./pipeloom.db"),
     *,
-    workers: int,
+    workers: int | None = None,
     wal: bool = True,
     store_task_status: bool = True,
-    worker_fn: Callable[[TaskDef, queue.Queue[object]], None] = default_worker,
+    worker_fn: Callable[[TTask, queue.Queue[Msg]], None],
 ) -> None:
     """
-    Execute an ETL-style workload using a single-writer SQLite backend.
+    Execute a workload using a single-writer SQLite backend.
 
-    Args:
-        db_path (Path): Target SQLite database path.
-        tasks (Iterable[TaskDef]): Iterable of TaskDef instances (one per unit of work).
-        workers (int): Maximum number of concurrent worker threads.
-        wal (bool): Enable WAL mode for the writer (recommended for file-backed DBs).
-        store_task_status (bool): If True, create and maintain the `task_runs` table for observability.
-        worker_fn (Callable[[TaskDef, queue.Queue[object]], None]): Custom worker function.
-        Callable invoked for each TaskDef (signature: (task, queue) -> None).
+    Parameters
+    ----------
+    tasks : Iterable[TTask]
+        Opaque task objects (functions, dataclasses, dicts, etc.). The engine
+        does not inspect them; `worker_fn` knows how to run each.
+    db_path : Path
+        SQLite DB for pipeline metadata/observability.
+    workers : int | None
+        Max concurrent workers. Defaults to min(len(tasks), CPU count) when possible.
+    wal : bool
+        Enable SQLite WAL mode for better concurrency.
+    store_task_status : bool
+        Maintain `task_runs` table.
+    worker_fn : Callable[[TTask, queue.Queue[Msg]], None]
+        Invoked per task. Communicate via `msg_q`.
 
     Notes
     -----
     The writer thread is shut down *before* the per-task progress context exits,
-    guaranteeing that all bars are removed and the final frame shows only the
-    “All tasks 100%” line.
+    so the final frame shows only “All tasks 100%”.
     """
     all_tasks = list(tasks)
     n = len(all_tasks)
+    workers = _pick_workers(all_tasks, workers)
 
-    # Workers → Queue → Writer
-    msg_q: queue.Queue[object] = queue.Queue(maxsize=max(64, workers * 8))
+    # Sized message queue; scale with worker count
+    msg_q: queue.Queue[Msg] = queue.Queue(maxsize=max(64, workers * 8))
 
-    # Gentle shutdown: we don't hard-kill threads; we let in-flight tasks finish.
+    # Gentle shutdown
     stop_event = threading.Event()
 
     def handle_sigint(signum, frame):  # type: ignore[override]
         LOG.warning("SIGINT received; finishing in-flight tasks, then exiting…")
         stop_event.set()
 
-    signal.signal(signal.SIGINT, handle_sigint)
+    # Install handler only in main thread
+    try:
+        if threading.current_thread() is threading.main_thread():
+            signal.signal(signal.SIGINT, handle_sigint)
+    except Exception as e:
+        LOG.debug("signal handler not installed: %r", e)
 
-    # Build progress managers that share the same Console (see rlog.py).
     overall_p = make_overall_progress()
     task_p = make_task_progress()
 
-    with overall_p:
-        overall = overall_p.add_task("[cyan]All tasks", total=n)
-        with task_p:
-            # Pre-register bars to avoid creation races.
-            bar_map = preregister_task_bars(task_p, n)
+    start = time.time()
+    writer: SQLiteWriter | None = None
+    futures = []
 
-            # Start the writer *after* bars are created, passing the mapping.
-            writer = SQLiteWriter(
-                db_path=db_path,
-                msg_q=msg_q,
-                wal=wal,
-                store_task_status=store_task_status,
-                task_progress=task_p,
-                task_bar_map=bar_map,
-            )
-            writer.start()
+    try:
+        with overall_p:
+            overall = overall_p.add_task("[cyan]All tasks", total=n)
+            with task_p:
+                bar_map = preregister_task_bars(task_p, n)
 
-            start = time.time()
+                # Start writer after bars exist
+                writer = SQLiteWriter(
+                    db_path=db_path,
+                    msg_q=msg_q,
+                    wal=wal,
+                    store_task_status=store_task_status,
+                    task_progress=task_p,
+                    task_bar_map=bar_map,
+                )
+                writer.start()
 
-            # Submit work to a thread pool.
-            with ThreadPoolExecutor(max_workers=workers, thread_name_prefix="worker") as ex:
-                futures = [ex.submit(worker_fn, t, msg_q) for t in all_tasks]
-                try:
-                    for fut in as_completed(futures):
-                        _ = fut.result()  # surface exceptions
-                        overall_p.advance(overall, 1)  # advance only when a task finishes
-                        if stop_event.is_set():
-                            break
-                except KeyboardInterrupt:
-                    LOG.warning("KeyboardInterrupt; letting in-flight tasks finish…")
+                with ThreadPoolExecutor(
+                    max_workers=workers,
+                    thread_name_prefix="worker",
+                ) as ex:
+                    futures = [ex.submit(worker_fn, t, msg_q) for t in all_tasks]
 
-            # Shut down writer while the transient progress is still alive
-            # so the last bar removal appears before the final frame.
-            msg_q.put(SENTINEL)
+                    try:
+                        for fut in as_completed(futures):
+                            if stop_event.is_set():
+                                # Cancel whatever hasn't started yet
+                                ex.shutdown(wait=False, cancel_futures=True)
+                                break
+                            # Surface exceptions here; let caller see failures
+                            _ = fut.result()
+                            overall_p.advance(overall, 1)
+                    except KeyboardInterrupt:
+                        LOG.warning("KeyboardInterrupt; requesting graceful stop…")
+                        stop_event.set()
+                        ex.shutdown(wait=False, cancel_futures=True)
+                        # Drain any completed futures to surface exceptions
+                        for fut in futures:
+                            if fut.done():
+                                try:
+                                    _ = fut.result()
+                                except (CancelledError, Exception) as e:
+                                    LOG.error("Task error during shutdown: %s", e)
+
+        # Ensure last UI refresh while task progress context is alive
+        task_p.refresh()
+
+    finally:
+        # Always signal writer and join
+        if writer is not None and writer.is_alive():
+            try:
+                msg_q.put(SENTINEL)
+            except Exception as e:
+                LOG.debug("Failed to enqueue SENTINEL: %s", e)
             writer.join(timeout=30)
-            task_p.refresh()
 
-    LOG.info("Elapsed: %.2fs", time.time() - start)
+        LOG.info("Elapsed: %.2fs", time.time() - start)

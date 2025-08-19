@@ -96,7 +96,7 @@ Only the writer thread touches SQLite. WAL mode allows concurrent reads during w
 
 ## Using pipeloom in Your ETL
 
-1. Define tasks with `TaskDef(...)`.
+1. Define tasks with `Task(...)`.
 2. Provide a `worker_fn(task, msg_q)` that emits:
    - `MsgTaskStarted`
    - `MsgTaskProgress`

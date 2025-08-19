@@ -17,23 +17,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-
-@dataclass(frozen=True)
-class TaskDef:
-    """
-    Static definition of a unit of work.
-
-    Attributes:
-        task_id (int): Stable numeric identifier for the task. Used as the
-            primary key in SQLite and as the key for progress bar lookups.
-        name (str): Display-friendly name shown in logs and progress UI.
-        steps (int): Number of progress steps the *demo* worker will simulate.
-            In real code, you can ignore this and emit MsgTaskProgress at your own cadence.
-    """
-
-    task_id: int
-    name: str
-    steps: int = 20
+# Special object placed on the queue to request the writer to shut down cleanly.
+SENTINEL: object = object()
 
 
 @dataclass(frozen=True)
@@ -91,5 +76,4 @@ class MsgTaskFinished:
     message: str = ""
 
 
-# Special object placed on the queue to request the writer to shut down cleanly.
-SENTINEL: object = object()
+Msg = MsgTaskStarted | MsgTaskProgress | MsgTaskFinished
