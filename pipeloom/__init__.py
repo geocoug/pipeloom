@@ -73,7 +73,7 @@ __all__ = [  # noqa
     "setup_logging",
 ]
 
-__version__ = "0.0.5"
+__version__ = "0.0.6"
 
 # Single shared console for logs and progress.
 console = Console(log_path=False)
