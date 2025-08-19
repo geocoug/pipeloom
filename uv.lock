@@ -832,14 +832,9 @@ dependencies = [
 ]
 
 [package.optional-dependencies]
-demo = [
-    { name = "polars" },
-    { name = "requests" },
-]
 dev = [
     { name = "build" },
     { name = "bump-my-version" },
-    { name = "polars" },
     { name = "pre-commit" },
     { name = "pytest-cov" },
     { name = "ruff" },
@@ -855,6 +850,10 @@ docs = [
     { name = "mkdocstrings", extra = ["python"] },
     { name = "pymdown-extensions" },
 ]
+examples = [
+    { name = "polars" },
+    { name = "requests" },
+]
 
 [package.metadata]
 requires-dist = [
@@ -866,19 +865,18 @@ requires-dist = [
     { name = "mkdocs-mermaid2-plugin", marker = "extra == 'docs'", specifier = ">=1.2.1" },
     { name = "mkdocs-typer", marker = "extra == 'docs'", specifier = ">=0.0.3" },
     { name = "mkdocstrings", extras = ["python"], marker = "extra == 'docs'", specifier = ">=0.30.0" },
-    { name = "polars", marker = "extra == 'demo'", specifier = ">=1.32.2" },
-    { name = "polars", marker = "extra == 'dev'", specifier = ">=1.32.2" },
+    { name = "polars", marker = "extra == 'examples'", specifier = ">=1.32.2" },
     { name = "pre-commit", marker = "extra == 'dev'", specifier = ">=4.3.0" },
     { name = "pymdown-extensions", marker = "extra == 'docs'", specifier = ">=10.16.1" },
     { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=6.2.1" },
-    { name = "requests", marker = "extra == 'demo'", specifier = ">=2.32.4" },
+    { name = "requests", marker = "extra == 'examples'", specifier = ">=2.32.4" },
     { name = "rich", specifier = ">=14.1.0" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.12.8" },
     { name = "tox-uv", marker = "extra == 'dev'", specifier = ">=1.27.0" },
     { name = "twine", marker = "extra == 'dev'", specifier = ">=6.1.0" },
     { name = "typer", specifier = ">=0.16.0" },
 ]
-provides-extras = ["dev", "docs", "demo"]
+provides-extras = ["dev", "docs", "examples"]
 
 [[package]]
 name = "platformdirs"

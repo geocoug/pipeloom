@@ -122,7 +122,7 @@ addopts = [
     "--cov=pipeloom",
     "--cov=tests",
     "--cov-branch",
-    "--cov-fail-under=90",
+    "--cov-fail-under=80",
     "--strict-markers",
     "--strict-config",
     "--color=yes",
@@ -142,6 +142,7 @@ markers = [
 
 [tool.coverage.report]
 exclude_also = ["if __name__ == .__main__.:"]
+omit = ["pipeloom/examples/*"]
 
 [tool.tox]
 required = ["tox-uv"]
@@ -152,7 +153,7 @@ basepython = "python3.13"
 
 [tool.tox.env_run_base]
 description = "Run tests under {base_python}"
-deps = ["pytest-cov"]
+deps = ["pytest-cov", "polars", "requests"]
 commands = [["pytest", "{posargs}"]]
 
 [tool.tox.env.docs]

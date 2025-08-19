@@ -191,7 +191,7 @@ def examples_download(
 # ──────────────────────────────────────────────────────────────────────────────
 
 
-def _parse_kwargs(items: list[str]) -> dict[str, Any]:
+def _parse_kwargs(items: tuple[str]) -> dict[str, Any]:
     out = {}
     for item in items:
         if "=" not in item:
@@ -216,9 +216,9 @@ def run(
         typer.Argument(help="Import path, e.g. 'mypkg.mymodule:main'"),
     ],
     arg: Annotated[
-        tuple,
+        tuple[str] | None,
         typer.Option("--arg", help="Pass key=value to target."),
-    ] = (),
+    ] = None,
     verbose: Annotated[int, typer.Option("-v", "--verbose", count=True)] = 1,
     log_file: Annotated[Path | None, typer.Option("-l", "--log-file")] = None,
 ):
@@ -273,7 +273,7 @@ def status(
     ] = False,
 ):
     """
-    Show recent task runs and a status summary (requires --store-task-status).
+    Show recent task runs and a status summary.
     """
 
     def _fetch(con):
